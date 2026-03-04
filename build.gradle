@@ -46,8 +46,11 @@ deploy {
 
 def deployArtifact = deploy.targets.roborio.artifacts.frcJava
 
+// Set to true to use debug for all targets including JNI, which will drastically impact
+// performance.
 wpi.java.debugJni = false
 
+// Set this to true to enable desktop support.
 def includeDesktopSupport = true
 
 repositories {
@@ -59,17 +62,14 @@ repositories {
             if (f.name.endsWith(".json")) {
                 try {
                     def featureJson = new JsonSlurper().parseText(f.text)
-
                     if (featureJson && featureJson.mavenUrls) {
                         featureJson.mavenUrls.each { repoUrl ->
-
                             if (repoUrl != null && !repoUrl.toString().trim().isEmpty()) {
                                 maven { url = uri(repoUrl.toString().trim()) }
                             }
                         }
                     }
                 } catch (Exception e) {
-
                     println "[MARS WARNING] Archivo de feature corrupto o vacío: ${f.name}"
                 }
             }
@@ -77,6 +77,8 @@ repositories {
     }
 }
 
+// Defining my dependencies. In this case, WPILib (+ friends), and vendor libraries.
+// Also defines JUnit 5.
 dependencies {
     annotationProcessor wpi.java.deps.wpilibAnnotations()
     implementation wpi.java.deps.wpilib()
@@ -96,23 +98,30 @@ dependencies {
     nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
     simulationRelease wpi.sim.enableRelease()
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-    implementation 'com.squareup:javapoet:1.13.0'
+    // --- LA DIETA DE MARS: Herramientas de metaprogramación (Solo compilan, NO van al robot) ---
+    compileOnly 'com.squareup:javapoet:1.13.0'
     compileOnly 'com.google.auto.service:auto-service-annotations:1.1.1'
     annotationProcessor 'com.google.auto.service:auto-service:1.1.1'
 
-    implementation project(':mars-processor')
-    annotationProcessor project(':mars-processor')
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    // --- LECTURA DINÁMICA DE FEATURES ---
     def featuresDir = file("$projectDir/features")
     if (featuresDir.exists()) {
         featuresDir.listFiles().each { f ->
             if (f.name.endsWith(".json")) {
                 def featureJson = new JsonSlurper().parseText(f.text)
                 featureJson.javaDependencies?.each { dep ->
-                    implementation "${dep.groupId}:${dep.artifactId}:${dep.version}"
+                    def depString = "${dep.groupId}:${dep.artifactId}:${dep.version}"
+                    
+                    if (dep.isProcessor == true) {
+                        compileOnly depString
+                        annotationProcessor depString
+                        println "[MARS] Annotation Processor init: ${dep.artifactId}"
+                    } else {
+                        implementation depString
+                    }
                 }
             }
         }
@@ -132,24 +141,34 @@ wpi.sim.addDriverstation()
 // in order to make them all available at runtime. Also adding the manifest so WPILib
 // knows where to look for our Robot Class.
 jar {
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    from('src') { into 'backup/src' }
-    from('vendordeps') { into 'backup/vendordeps' }
-    from('build.gradle') { into 'backup' }
+    from { 
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } 
+    } {
+
+        exclude '**/*.exe'         // Nada de ejecutables
+        exclude '**/*.bat'         // Nada de scripts de consola
+        exclude '**/*.md'          // Nada de markdowns
+        exclude 'mars_terminal/**' // Bloqueamos la carpeta de la terminal
+        exclude 'mars-alloy/**'    // Bloqueamos la carpeta de alloy
+        exclude 'mars-logtool/**'  // Bloqueamos la carpeta logtool
+        exclude 'mars-processor/**'// Por si acaso, bloqueamos la carpeta vieja del procesador local
+
+        exclude 'features/**'      // Bloqueamos los JSON de features
+        exclude 'vendordeps/**'    // Bloqueamos los JSON de vendordeps para no llenar el roboRIO con basura de versiones anteriores
+    }
+    
     manifest edu.wpi.first.gradlerio.GradleRIOPlugin.javaManifest(ROBOT_MAIN_CLASS)
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE 
 }
 
-// Configure jar and deploy tasks
 deployArtifact.jarTask = jar
 wpi.java.configureExecutableTasks(jar)
 wpi.java.configureTestTasks(test)
 
-// Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
 }
-
 
 task generateBuildConstants {
 
@@ -208,4 +227,3 @@ task syncMarsVersion {
 
 compileJava.dependsOn generateBuildConstants
 compileJava.dependsOn syncMarsVersion
-
