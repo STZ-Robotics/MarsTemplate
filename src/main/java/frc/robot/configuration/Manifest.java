@@ -7,9 +7,6 @@ public class Manifest {
 
     public static final RunMode CURRENT_MODE = RunMode.REAL;
 
-    static{
-        Environment.setMode(CURRENT_MODE);
-    }
+    static{Environment.setMode(CURRENT_MODE);}
 
-    public static final boolean HAS_MARS_GCS = false;
 }

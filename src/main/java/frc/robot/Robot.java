@@ -8,9 +8,7 @@ import com.stzteam.forgemini.io.NetworkIO;
 import com.stzteam.mars.builder.Environment;
 import com.stzteam.mars.models.containers.IRobotContainer;
 import com.stzteam.mars.test.TestScheduler;
-import com.stzteam.mars.utils.TerminalGCS;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -27,20 +25,8 @@ public class Robot extends TimedRobot {
 
     Environment.setMode(Manifest.CURRENT_MODE);
     
-    if (Manifest.HAS_MARS_GCS) {
-      TerminalGCS.initNetworkStream();
-
-      TerminalGCS.bootSequence();
-    }
-
-    DriverStation.silenceJoystickConnectionWarning(true);
-
     m_robotContainer = new RobotContainer();
   
-    if (Manifest.HAS_MARS_GCS) {
-      TerminalGCS.printModuleSummary();
-    }
-
     NetworkIO.set("System", "IO", Environment.getMode().name());
     NetworkIO.set("System", "isOnSim", RobotBase.isSimulation());
 
@@ -52,9 +38,6 @@ public class Robot extends TimedRobot {
 
     m_robotContainer.updateNodes();
 
-    if (Manifest.HAS_MARS_GCS) {
-      TerminalGCS.updatePeriodic();
-    }
   }
 
   @Override

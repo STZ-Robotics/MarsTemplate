@@ -58,7 +58,7 @@ wpi.java.debugJni = false
 def includeDesktopSupport = true
 
 def parsedFeatures = []
-def featuresDir = file("$projectDir/workspace/features")
+def featuresDir = file("$projectDir/workspace-mars/features")
 if (featuresDir.exists()) {
     featuresDir.listFiles().each { f ->
         if (f.name.endsWith(".json")) {
@@ -138,7 +138,7 @@ wpi.sim.addDriverstation()
 // knows where to look for our Robot Class.
 jar {
     
-        exclude 'workspace/**'
+        exclude 'workspace-mars/**'
     exclude 'vendordeps/**'
 
     from { 
@@ -196,4 +196,5 @@ public final class BuildConstants {
 }
 
 compileJava.dependsOn generateBuildConstants
-apply from: 'workspace/build/ascii-logo.gradle'
+apply from: 'workspace-mars/build/ascii-logo.gradle'
+apply from : 'workspace-mars/build/todo-hunter.gradle'
